@@ -26,6 +26,9 @@
 
     console.log("Userscript iniciado em:", window.location.href, "em", new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" }));
 
+    // Data URL para imagem de fallback
+    const BLANK_IMAGE_URL = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAALYAAACUCAMAAAAJSiMLAAAAA1BMVEX///+nxBvIAAAAMElEQVR4nO3BAQEAAACCIP+vbkhAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD8GmnMAAGjcCc5AAAAAElFTkSuQmCC';
+
     // Função para obter a URL da logo dinamicamente
     function getLogoURL() {
         let installID = '2930402'; // Fallback
@@ -98,13 +101,31 @@
                         };
                         img.src = dataUrl;
                     } else {
-                        console.error("Erro ao fetch logo via GM_xmlhttpRequest:", response.status, response.statusText);
-                        reject(new Error(`Falha ao fetch logo: ${response.status}`));
+                        console.warn(`Erro ao carregar logo de ${url}, usando imagem de fallback. Status: ${response.status}`);
+                        const img = new Image();
+                        img.onload = () => {
+                            console.log("Imagem de fallback carregada:", BLANK_IMAGE_URL);
+                            resolve(img);
+                        };
+                        img.onerror = () => {
+                            console.error("Erro ao carregar imagem de fallback:", BLANK_IMAGE_URL);
+                            reject(new Error("Erro ao carregar a imagem de fallback"));
+                        };
+                        img.src = BLANK_IMAGE_URL;
                     }
                 },
                 onerror: function(error) {
-                    console.error("Erro de rede ao fetch logo via GM_xmlhttpRequest:", error);
-                    reject(error);
+                    console.warn(`Erro de rede ao carregar logo de ${url}, usando imagem de fallback.`, error);
+                    const img = new Image();
+                    img.onload = () => {
+                        console.log("Imagem de fallback carregada:", BLANK_IMAGE_URL);
+                        resolve(img);
+                    };
+                    img.onerror = () => {
+                        console.error("Erro ao carregar imagem de fallback:", BLANK_IMAGE_URL);
+                        reject(new Error("Erro ao carregar a imagem de fallback"));
+                    };
+                    img.src = BLANK_IMAGE_URL;
                 }
             });
         });
