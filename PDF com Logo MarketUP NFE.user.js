@@ -6,6 +6,7 @@
 // @author       Eriandson Azevedo
 // @match        https://*/index.html
 // @match        https://*/index-adesampa.html
+// @match        https://*/muppos/*
 // @require      https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js
 // @require      https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js
 // @require      https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js
@@ -28,30 +29,38 @@
 
     // Data URL para imagem de fallback
     const BLANK_IMAGE_URL = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAALYAAACUCAMAAAAJSiMLAAAAA1BMVEX///+nxBvIAAAAMElEQVR4nO3BAQEAAACCIP+vbkhAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD8GmnMAAGjcCc5AAAAAElFTkSuQmCC';
-
+    let cachedLogoURL = null;
     // Função para obter a URL da logo dinamicamente
     function getLogoURL() {
-        let installID = '2930402'; // Fallback
+        if (cachedLogoURL) return cachedLogoURL;
+        let installID = '2930402';
         try {
             const marketUPCurrentErp = localStorage.getItem('MarketUPCurrentErp');
             if (marketUPCurrentErp) {
                 const erpData = JSON.parse(marketUPCurrentErp);
                 if (erpData && erpData.InstallSummaryInfo && erpData.InstallSummaryInfo.InstallID) {
                     installID = erpData.InstallSummaryInfo.InstallID;
-                    console.log("InstallID encontrado via localStorage.MarketUPCurrentErp:", installID);
-                } else {
-                    console.warn("InstallSummaryInfo ou InstallID não encontrado em localStorage.MarketUPCurrentErp. Usando fallback:", installID);
+                    console.log("InstallID encontrado:", installID);
                 }
-            } else {
-                console.warn("Chave MarketUPCurrentErp não encontrada em localStorage. Usando fallback:", installID);
             }
         } catch (error) {
-            console.error("Erro ao acessar localStorage ou parsear MarketUPCurrentErp:", error.message);
-            console.warn("Usando InstallID fallback:", installID);
+            console.error("Erro ao acessar localStorage:", error.message);
         }
-        return `https://marketup-cdn.s3.amazonaws.com/files/${installID}/profile/logo.png?v=636323545159742903`;
+        cachedLogoURL = `https://marketup-cdn.s3.amazonaws.com/files/${installID}/profile/logo.png?v=636323545159742903`;
+        return cachedLogoURL;
     }
 
+    function debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    }
     // Função para carregar biblioteca dinamicamente
     function loadScriptDynamically(url) {
         return new Promise((resolve, reject) => {
@@ -473,10 +482,48 @@
         new MutationObserver(() => {
             const currentUrl = location.href;
             if (currentUrl !== lastUrl) {
-                console.log("URL mudou:", currentUrl);
                 lastUrl = currentUrl;
                 setupViewNfListener();
             }
         }).observe(document, { subtree: true, childList: true });
+
+    // Função para substituir a logo
+    function substituirLogo() {
+        const minhaLogo = getLogoURL();
+
+        // Verifica iframes
+        const iframes = document.querySelectorAll('iframe');
+        iframes.forEach((iframe, index) => {
+            try {
+                const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+                const clientLogoImages = iframeDoc.querySelectorAll('img.client_logo');
+                clientLogoImages.forEach((img, imgIndex) => {
+                    if (img.src !== minhaLogo) {
+                        img.src = minhaLogo;
+                    } else {
+                    }
+                });
+            } catch (e) {
+                console.warn(`Erro ao acessar o iframe ${index}: ${e.message}`);
+            }
+        });
+    }
+
+    // Observador para mudanças no DOM
+    const observer = new MutationObserver(() => {
+        substituirLogo();
+    });
+
+    observer.observe(document.body, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['src']
+    });
+
+    // Executa a substituição inicial
+    window.addEventListener('load', () => {
+        substituirLogo();
+    });
     })();
 })();
