@@ -173,7 +173,7 @@
     }
 
     // Função para capturar o blob PDF e extrair a chave de acesso (CORS BYPASS)
-    async function captureBlobPDF(timeout = 5000) {
+    async function captureBlobPDF(timeout = 10000) {
         return new Promise((resolve, reject) => {
             console.log("Iniciando captura de blob PDF...");
 
@@ -441,14 +441,64 @@
         }
     }
 
-    // Detecta cliques no botão #viewNf usando MutationObserver
-    function setupViewNfListener() {
-        const observer = new MutationObserver((mutations, obs) => {
-            const viewNfButton = document.getElementById('viewNf');
-            if (viewNfButton && !viewNfButton.dataset.listenerAttached) {
-                console.log("Botão #viewNf encontrado via MutationObserver!");
-                viewNfButton.addEventListener('click', async (event) => {
-                    console.log("Botão #viewNf clicado!");
+    // Detecta cliques nos botões #viewNf, #invoice_detail_emitir e botão NFCe usando MutationObserver
+function setupButtonListeners() {
+    const observer = new MutationObserver((mutations, obs) => {
+        // Detecta o botão #viewNf
+        const viewNfButton = document.getElementById('viewNf');
+        if (viewNfButton && !viewNfButton.dataset.listenerAttached) {
+            console.log("Botão #viewNf encontrado via MutationObserver!");
+            viewNfButton.addEventListener('click', async (event) => {
+                console.log("Botão #viewNf clicado!");
+                event.preventDefault();
+                try {
+                    const { arrayBuffer, chave } = await captureBlobPDF();
+                    if (arrayBuffer) {
+                        console.log("Processando blob PDF...");
+                        await addLogoToPDF(arrayBuffer, chave);
+                    } else {
+                        console.error("Nenhum blob PDF capturado.");
+                        alert("Nenhum PDF foi detectado. Verifique o console para detalhes.");
+                    }
+                } catch (error) {
+                    console.error("Erro ao processar clique no #viewNf:", error.message);
+                    alert("Erro ao processar o PDF. Verifique o console para detalhes.");
+                }
+            });
+            viewNfButton.dataset.listenerAttached = 'true';
+        }
+
+        // Detecta o botão #invoice_detail_emitir (NFe)
+        const nfeButton = document.getElementById('invoice_detail_emitir');
+        if (nfeButton && !nfeButton.dataset.listenerAttached) {
+            console.log("Botão #invoice_detail_emitir encontrado via MutationObserver!");
+            nfeButton.addEventListener('click', async (event) => {
+                console.log("Botão #invoice_detail_emitir clicado!");
+                event.preventDefault();
+                try {
+                    const { arrayBuffer, chave } = await captureBlobPDF();
+                    if (arrayBuffer) {
+                        console.log("Processando blob PDF...");
+                        await addLogoToPDF(arrayBuffer, chave);
+                    } else {
+                        console.error("Nenhum blob PDF capturado.");
+                        alert("Nenhum PDF foi detectado. Verifique o console para detalhes.");
+                    }
+                } catch (error) {
+                    console.error("Erro ao processar clique no #invoice_detail_emitir:", error.message);
+                    alert("Erro ao processar o PDF. Verifique o console para detalhes.");
+                }
+            });
+            nfeButton.dataset.listenerAttached = 'true';
+        }
+
+        // Detecta o botão NFCe (baseado na classe 'issue' e ng-click="controller.issueNfce()")
+        const nfceButtons = document.querySelectorAll('button.issue[ng-click="controller.issueNfce()"]');
+        nfceButtons.forEach((nfceButton, index) => {
+            if (!nfceButton.dataset.listenerAttached) {
+                console.log(`Botão NFCe (índice ${index}) encontrado via MutationObserver!`);
+                nfceButton.addEventListener('click', async (event) => {
+                    console.log(`Botão NFCe (índice ${index}) clicado!`);
                     event.preventDefault();
                     try {
                         const { arrayBuffer, chave } = await captureBlobPDF();
@@ -460,32 +510,30 @@
                             alert("Nenhum PDF foi detectado. Verifique o console para detalhes.");
                         }
                     } catch (error) {
-                        console.error("Erro ao processar clique no #viewNf:", error.message);
+                        console.error(`Erro ao processar clique no botão NFCe (índice ${index}):`, error.message);
                         alert("Erro ao processar o PDF. Verifique o console para detalhes.");
                     }
                 });
-                viewNfButton.dataset.listenerAttached = 'true';
-                obs.disconnect();
+                nfceButton.dataset.listenerAttached = 'true';
             }
         });
-        observer.observe(document.body, { childList: true, subtree: true });
-        console.log("MutationObserver iniciado para detectar botão #viewNf...");
-    }
-    setupViewNfListener();
 
-    // Log para confirmar inicialização
-    console.log("Userscript carregado com sucesso. Aguardando clique no #viewNf...");
+    });
 
-    // Detecta mudanças de URL em SPAs (Single Page Applications)
-    (function monitorURLChanges() {
-        let lastUrl = location.href;
-        new MutationObserver(() => {
-            const currentUrl = location.href;
-            if (currentUrl !== lastUrl) {
-                lastUrl = currentUrl;
-                setupViewNfListener();
-            }
-        }).observe(document, { subtree: true, childList: true });
+    observer.observe(document.body, { childList: true, subtree: true });
+    console.log("MutationObserver iniciado para detectar botões #viewNf, #invoice_detail_emitir e NFCe...");
+}
+
+// Detecta mudanças de URL em SPAs (Single Page Applications)
+(function monitorURLChanges() {
+    let lastUrl = location.href;
+    new MutationObserver(() => {
+        const currentUrl = location.href;
+        if (currentUrl !== lastUrl) {
+            lastUrl = currentUrl;
+            setupButtonListeners();
+        }
+    }).observe(document, { subtree: true, childList: true });
 
     // Função para substituir a logo
     function substituirLogo() {
