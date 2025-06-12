@@ -586,9 +586,10 @@
                     viewNfButton.dataset.listenerAttached = 'true';
                 }
 
-                const nfeButton = document.getElementsByClassName('nfe-btn')[0];
-                if (nfeButton && !nfeButton.dataset.listenerAttached) {
-                    console.log("Botão de emissão de NFe encontrado via MutationObserver!");
+                // Detecta o botão #invoice_detail_emitir (NFe)
+            const nfeButton = document.getElementById('invoice_detail_emitir');
+            if (nfeButton && !nfeButton.dataset.listenerAttached) {
+                console.log("Botão #invoice_detail_emitir encontrado via MutationObserver!");
                     nfeButton.addEventListener('click', async (event) => {
                         console.log("Botão de emissão de NFe clicado!");
                         event.preventDefault();
