@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         PDF com Logo MarketUP NFE
+// @name         PDF com Logo MarketUP
 // @namespace    http://tampermonkey.net/
 // @version      2025
 // @description  Adiciona uma logo ao PDF da DANFE
@@ -82,7 +82,7 @@
 
     // Função para carregar a imagem da logo usando GM_xmlhttpRequest (CORS BYPASS)
     function loadImage(url) {
-        return new Promise((resolve, reject) => {
+        return new Promise((resolve) => {
             GM_xmlhttpRequest({
                 method: 'GET',
                 url: url,
@@ -103,34 +103,36 @@
                             resolve(img);
                         };
                         img.onerror = () => {
-                            console.error("Erro ao carregar logo como imagem:", url);
-                            reject(new Error("Erro ao carregar a imagem da logo"));
+                            console.warn("Erro ao carregar logo como imagem, usando fallback:", url);
+                            const fallbackImg = new Image();
+                            fallbackImg.onload = () => resolve(fallbackImg);
+                            fallbackImg.onerror = () => {
+                                console.error("Erro ao carregar imagem de fallback:", BLANK_IMAGE_URL);
+                                resolve(fallbackImg); // Resolve mesmo com erro no fallback
+                            };
+                            fallbackImg.src = BLANK_IMAGE_URL;
                         };
                         img.src = dataUrl;
                     } else {
                         console.warn(`Erro ao carregar logo de ${url}, usando imagem de fallback. Status: ${response.status}`);
-                        const img = new Image();
-                        img.onload = () => {
-                            resolve(img);
-                        };
-                        img.onerror = () => {
+                        const fallbackImg = new Image();
+                        fallbackImg.onload = () => resolve(fallbackImg);
+                        fallbackImg.onerror = () => {
                             console.error("Erro ao carregar imagem de fallback:", BLANK_IMAGE_URL);
-                            reject(new Error("Erro ao carregar a imagem de fallback"));
+                            resolve(fallbackImg); // Resolve mesmo com erro no fallback
                         };
-                        img.src = BLANK_IMAGE_URL;
+                        fallbackImg.src = BLANK_IMAGE_URL;
                     }
                 },
                 onerror: function(error) {
                     console.warn(`Erro de rede ao carregar logo de ${url}, usando imagem de fallback.`, error);
-                    const img = new Image();
-                    img.onload = () => {
-                        resolve(img);
-                    };
-                    img.onerror = () => {
+                    const fallbackImg = new Image();
+                    fallbackImg.onload = () => resolve(fallbackImg);
+                    fallbackImg.onerror = () => {
                         console.error("Erro ao carregar imagem de fallback:", BLANK_IMAGE_URL);
-                        reject(new Error("Erro ao carregar a imagem de fallback"));
+                        resolve(fallbackImg); // Resolve mesmo com erro no fallback
                     };
-                    img.src = BLANK_IMAGE_URL;
+                    fallbackImg.src = BLANK_IMAGE_URL;
                 }
             });
         });
@@ -165,8 +167,9 @@
         });
     }
 
-    // Função para capturar a chave de acesso do elemento <span>
-    function getChaveFromSpan() {
+    // Função para capturar a chave de acesso do DOM
+    function getChaveFromDOM() {
+        let chave = null;
         const spanElement = document.querySelector('span.col-xs-12.ng-binding');
         if (spanElement) {
             const text = spanElement.textContent.trim();
@@ -179,16 +182,61 @@
         } else {
             console.warn("Elemento <span class='col-xs-12 ng-binding'> não encontrado.");
         }
+
+        const elements = document.querySelectorAll('span, div, p');
+        for (let element of elements) {
+            const text = element.textContent.trim();
+            if (/^\d{44}$/.test(text)) {
+                console.log("Chave de acesso encontrada em outro elemento:", text);
+                return text;
+            }
+        }
+
+        console.warn("Nenhuma chave de acesso encontrada no DOM.");
+        return chave;
+    }
+
+    // Função para extrair o nome do arquivo a partir do DOM
+    function getFileNameFromDOM() {
+        // Verifica o número do pedido em <p class="order-number ng-binding">
+        const orderNumberElement = document.querySelector('p.order-number.ng-binding');
+        if (orderNumberElement) {
+            const orderNumber = orderNumberElement.textContent.trim();
+            if (/^\d+$/.test(orderNumber)) {
+                console.log("Número do pedido encontrado em <p class='order-number ng-binding'>:", orderNumber);
+                return `Pedido de Venda ${orderNumber}.pdf`;
+            } else {
+                console.warn("Conteúdo de <p class='order-number ng-binding'> não é um número válido:", orderNumber);
+            }
+        } else {
+            console.warn("Elemento <p class='order-number ng-binding'> não encontrado.");
+        }
+
+        // Verifica o título em <span id="title"> para orçamentos
+        const titleElement = document.querySelector('span#title');
+        if (titleElement) {
+            const titleText = titleElement.textContent.trim();
+            console.log("Conteúdo do <span id='title'>:", titleText);
+            const orcamentoMatch = titleText.match(/Orçamento de Venda (\d+)/i);
+            if (orcamentoMatch) {
+                const numero = orcamentoMatch[1];
+                return `orcamento-de-venda-${numero}.pdf`;
+            }
+            console.warn("Título não corresponde a Orçamento de Venda:", titleText);
+        } else {
+            console.warn("Elemento <span id='title'> não encontrado.");
+        }
+
         return null;
     }
 
     // Função para capturar o blob PDF e extrair a chave de acesso (CORS BYPASS)
-    async function captureBlobPDF(timeout = 10000) {
+    async function captureBlobPDF(timeout = 15000) {
         return new Promise((resolve, reject) => {
             console.log("Iniciando captura de blob PDF...");
 
             let pdfURL = null;
-            let chave = getChaveFromSpan();
+            let chave = getChaveFromDOM();
             let blobCaptured = false;
 
             function tryFetchPDF(url) {
@@ -213,6 +261,17 @@
                 });
             }
 
+            // Monitora mudanças no DOM para detectar a chave dinamicamente
+            const chaveObserver = new MutationObserver((mutations) => {
+                if (!chave) {
+                    chave = getChaveFromDOM();
+                    if (chave) {
+                        console.log("Chave de acesso detectada via MutationObserver:", chave);
+                    }
+                }
+            });
+            chaveObserver.observe(document.body, { childList: true, subtree: true, characterData: true });
+
             // Intercepta fetch
             const originalFetch = window.fetch;
             window.fetch = async function(resource, init) {
@@ -230,7 +289,7 @@
                         const arrayBuffer = await tryFetchPDF(pdfURL);
                         blobCaptured = true;
                         cleanupInterceptors();
-                        resolve({ arrayBuffer, chave });
+                        resolve({ arrayBuffer, chave, url: pdfURL });
                     } catch (error) {
                         console.error("Falha ao fetch PDF via GM_xmlhttpRequest no fetch:", error.message);
                     }
@@ -246,13 +305,14 @@
                         const chaveMatch = url.match(/\/(\d{44})\.pdf(?:\?.*)?$/);
                         if (chaveMatch) {
                             chave = chaveMatch[1];
+                            console.log("Chave de acesso extraída da URL (XMLHttpRequest):", chave);
                         }
                     }
-                    tryFetchPDF(pdfURL)
+                    tryFetchPDF(url)
                         .then(arrayBuffer => {
                             blobCaptured = true;
                             cleanupInterceptors();
-                            resolve({ arrayBuffer, chave });
+                            resolve({ arrayBuffer, chave, url: pdfURL });
                         })
                         .catch(error => {
                             console.error("Falha ao fetch PDF via GM_xmlhttpRequest no XMLHttpRequest:", error.message);
@@ -270,13 +330,14 @@
                         const chaveMatch = pdfURL.match(/\/(\d{44})\.pdf(?:\?.*)?$/);
                         if (chaveMatch) {
                             chave = chaveMatch[1];
+                            console.log("Chave de acesso extraída da URL (clique):", chave);
                         }
                     }
                     tryFetchPDF(pdfURL)
                         .then(arrayBuffer => {
                             blobCaptured = true;
                             cleanupInterceptors();
-                            resolve({ arrayBuffer, chave });
+                            resolve({ arrayBuffer, chave, url: pdfURL });
                         })
                         .catch(error => {
                             console.error("Falha ao fetch PDF via GM_xmlhttpRequest no clique:", error.message);
@@ -298,7 +359,7 @@
                                 .then(arrayBuffer => {
                                     blobCaptured = true;
                                     cleanupInterceptors();
-                                    resolve({ arrayBuffer, chave });
+                                    resolve({ arrayBuffer, chave, url: pdfURL });
                                 })
                                 .catch(err => {
                                     console.error("Erro ao capturar blob PDF via MutationObserver:", err.message);
@@ -322,7 +383,7 @@
                         .then(arrayBuffer => {
                             blobCaptured = true;
                             cleanupInterceptors();
-                            resolve({ arrayBuffer, chave });
+                            resolve({ arrayBuffer, chave, url: pdfURL });
                         })
                         .catch(err => {
                             console.error("Erro ao capturar blob PDF via createObjectURL:", err.message);
@@ -338,6 +399,7 @@
                 URL.createObjectURL = originalCreateObjectURL;
                 document.removeEventListener('click', handleClick);
                 blobObserver.disconnect();
+                chaveObserver.disconnect();
             }
 
             // Timeout com fallback para download manual
@@ -359,7 +421,7 @@
                             if (file && file.type === 'application/pdf') {
                                 console.log("Arquivo PDF selecionado pelo usuário:", file.name);
                                 const arrayBuffer = await file.arrayBuffer();
-                                resolve({ arrayBuffer, chave });
+                                resolve({ arrayBuffer, chave, url: pdfURL });
                             } else {
                                 console.error("Nenhum arquivo PDF válido selecionado.");
                                 alert("Por favor, selecione um arquivo PDF válido.");
@@ -377,7 +439,7 @@
     }
 
     // Função para adicionar a logo a todas as páginas do PDF
-    async function addLogoToPDF(pdfArrayBuffer, chave) {
+    async function addLogoToPDF(pdfArrayBuffer, { chave, url }, isPrintIcon = false, isViewNf = false) {
         try {
             await waitForLibraries();
             const { PDFDocument } = window.PDFLib;
@@ -385,127 +447,237 @@
             const pdfDoc = await PDFDocument.load(pdfArrayBuffer);
 
             // Define o nome do arquivo
-            const fileName = chave ? `NFe ${chave}.pdf` : 'danfe_com_logo.pdf';
-            console.log("Nome do arquivo definido:", fileName);
+            let fileName = 'documento_com_logo.pdf';
+            if (chave) {
+                fileName = `NFe ${chave}.pdf`;
+                console.log("Nome do arquivo definido como NFe com chave:", fileName);
+            } else {
+                const domFileName = getFileNameFromDOM();
+                if (domFileName) {
+                    fileName = domFileName;
+                    console.log("Nome do arquivo definido a partir do DOM:", fileName);
+                } else if (url) {
+                    // Fallback para URL
+                    if (url.includes('pedido-de-venda')) {
+                        fileName = 'pedido-de-venda_com_logo.pdf';
+                        console.log("Nome do arquivo definido como pedido (URL):", fileName);
+                    } else if (url.includes('or%25C3%25A7amento-de-venda')) {
+                        fileName = 'orcamento-de-venda_com_logo.pdf';
+                        console.log("Nome do arquivo definido como orçamento (URL):", fileName);
+                    } else {
+                        console.warn("URL não corresponde a padrão conhecido, usando fallback:", url);
+                    }
+                } else {
+                    console.warn("Nenhuma chave, número de pedido, título ou URL válida fornecida, usando nome padrão:", fileName);
+                }
+            }
 
             // Carrega a imagem da logo
             const logoUrl = getLogoURL();
-            const logoImg = await loadImage(logoUrl);
-            const logoCanvas = document.createElement('canvas');
-            logoCanvas.width = 100;
-            logoCanvas.height = 100;
-            const ctx = logoCanvas.getContext('2d');
-            ctx.drawImage(logoImg, 0, 0, 100, 100);
-            const logoBytes = logoCanvas.toDataURL('image/png');
+            let logoImage;
+            try {
+                const logoImg = await loadImage(logoUrl);
+                const logoCanvas = document.createElement('canvas');
+                logoCanvas.width = 100;
+                logoCanvas.height = 100;
+                const ctx = logoCanvas.getContext('2d');
+                ctx.drawImage(logoImg, 0, 0, 100, 100);
+                const logoBytes = logoCanvas.toDataURL('image/png');
+                logoImage = await pdfDoc.embedPng(logoBytes);
+                console.log("Imagem da logo processada com sucesso.");
+            } catch (error) {
+                console.warn("Erro ao processar a imagem da logo, usando PDF sem logo:", error.message);
+                // Prossegue sem adicionar a logo
+                const pdfBytes = await pdfDoc.save();
+                const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+                const blobUrl = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = blobUrl;
+                a.download = fileName;
+                a.click();
+                URL.revokeObjectURL(blobUrl);
+                console.log("PDF sem logo baixado como:", fileName);
+                return;
+            }
 
-            const logoImage = await pdfDoc.embedPng(logoBytes);
             const pages = pdfDoc.getPages();
-
             pages.forEach(page => {
                 const { width, height } = page.getSize();
-                const logoWidth = 111 * 0.75;
-                const logoHeight = 111 * 0.75;
-                const logoX = 60 * 0.75;
-                const logoY = height - (122 * 0.75) - logoHeight;
+                let logoWidth, logoHeight, logoX, logoY;
 
-                page.drawImage(logoImage, {
-                    x: logoX,
-                    y: logoY,
-                    width: logoWidth,
-                    height: logoHeight,
-                });
+                if (isViewNf) {
+                    // Configurações específicas para ng-click="controller.viewNfce()"
+                    logoWidth = 65 * 0.75;
+                    logoHeight = 65 * 0.75;
+                    logoX = 17 * 0.75;
+                    logoY = height - (20 * 0.75) - logoHeight;
+                } else if (isPrintIcon) {
+                    // Configurações para o ícone de impressão
+                    logoWidth = 80;
+                    logoHeight = 80;
+                    logoX = 15;
+                    logoY = height - 40 - logoHeight;
+                } else {
+                    // Configurações padrão (incluindo ng-click="controller.viewNfe()")
+                    logoWidth = 111 * 0.75;
+                    logoHeight = 111 * 0.75;
+                    logoX = 60 * 0.75;
+                    logoY = height - (122 * 0.75) - logoHeight;
+                }
+
+                try {
+                    page.drawImage(logoImage, {
+                        x: logoX,
+                        y: logoY,
+                        width: logoWidth,
+                        height: logoHeight,
+                    });
+                } catch (error) {
+                    console.warn("Erro ao desenhar a logo na página, continuando com PDF sem logo:", error.message);
+                }
             });
-            console.log("Logo adicionada a todas as páginas do PDF.");
+            console.log("Logo adicionado a todas as páginas do PDF.");
 
             // Salva o PDF modificado
             const pdfBytes = await pdfDoc.save();
             const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-            const url = URL.createObjectURL(blob);
+            const blobUrl = URL.createObjectURL(blob);
             const a = document.createElement('a');
-            a.href = url;
+            a.href = blobUrl;
             a.download = fileName;
             a.click();
-            URL.revokeObjectURL(url);
+            URL.revokeObjectURL(blobUrl);
             console.log("PDF modificado baixado como:", fileName);
         } catch (error) {
-            console.error("Erro ao adicionar logo ao PDF:", error.message);
+            console.error("Erro crítico ao adicionar logo ao PDF:", error.message);
             alert("Erro ao processar o PDF. Verifique o console para detalhes.");
             throw error;
         }
     }
 
-    // Função para detectar botões e adicionar listeners
+    // Função para detectar botões e o ícone de impressão
     function setupButtonListeners() {
         const observer = new MutationObserver((mutations, obs) => {
-            const viewNfButton = document.getElementById('viewNf');
-            if (viewNfButton && !viewNfButton.dataset.listenerAttached) {
-                console.log("Botão #viewNf encontrado via MutationObserver!");
-                viewNfButton.addEventListener('click', async (event) => {
-                    console.log("Botão #viewNf clicado!");
-                    event.preventDefault();
-                    try {
-                        const { arrayBuffer, chave } = await captureBlobPDF();
-                        if (arrayBuffer) {
-                            await addLogoToPDF(arrayBuffer, chave);
-                        } else {
-                            console.error("Nenhum blob PDF capturado.");
-                            alert("Nenhum PDF foi detectado. Verifique o console para detalhes.");
-                        }
-                    } catch (error) {
-                        console.error("Erro ao processar clique no #viewNf:", error.message);
-                        alert("Erro ao processar o PDF. Verifique o console para detalhes.");
-                    }
-                });
-                viewNfButton.dataset.listenerAttached = 'true';
-            }
-
-            // Detecta o botão #invoice_detail_emitir (NFe)
-            const nfeButton = document.getElementById('invoice_detail_emitir');
-            if (nfeButton && !nfeButton.dataset.listenerAttached) {
-                console.log("Botão #invoice_detail_emitir encontrado via MutationObserver!");
-                nfeButton.addEventListener('click', async (event) => {
-                    console.log("Botão #invoice_detail_emitir clicado!");
-                    event.preventDefault();
-                    try {
-                        const { arrayBuffer, chave } = await captureBlobPDF();
-                        if (arrayBuffer) {
-                            await addLogoToPDF(arrayBuffer, chave);
-                        } else {
-                            console.error("Nenhum blob PDF capturado.");
-                            alert("Nenhum PDF foi detectado. Verifique o console para detalhes.");
-                        }
-                    } catch (error) {
-                        console.error("Erro ao processar clique no #invoice_detail_emitir:", error.message);
-                        alert("Erro ao processar o PDF. Verifique o console para detalhes.");
-                    }
-                });
-                nfeButton.dataset.listenerAttached = 'true';
-            }
-
-            // Detecta o botão NFCe (baseado na classe 'issue' e ng-click="controller.issueNfce()")
-            const nfceButtons = document.querySelectorAll('button.issue[ng-click="controller.issueNfce()"]');
-            nfceButtons.forEach((nfceButton, index) => {
-                if (!nfceButton.dataset.listenerAttached) {
-                    console.log(`Botão NFCe (índice ${index}) encontrado via MutationObserver!`);
-                    nfceButton.addEventListener('click', async (event) => {
-                        console.log(`Botão NFCe (índice ${index}) clicado!`);
+            try {
+                const viewNfButton = document.getElementById('viewNf');
+                if (viewNfButton && !viewNfButton.dataset.listenerAttached) {
+                    console.log("Botão #viewNf encontrado via MutationObserver!");
+                    viewNfButton.addEventListener('click', async (event) => {
+                        console.log("Botão #viewNf clicado!");
                         event.preventDefault();
                         try {
-                            const { arrayBuffer, chave } = await captureBlobPDF();
-                            if (arrayBuffer) {
-                                await addLogoToPDF(arrayBuffer, chave);
+                            // Verifica o atributo ng-click para determinar se é NFe ou NFC-e
+                            const ngClick = viewNfButton.getAttribute('ng-click');
+                            const isViewNf = ngClick && ngClick.includes('controller.viewNfce()');
+                            console.log("Botão #viewNf é NFC-e (ng-click='controller.viewNfce()')?", isViewNf);
+
+                            const result = await captureBlobPDF();
+                            if (result.arrayBuffer) {
+                                await addLogoToPDF(result.arrayBuffer, result, false, isViewNf);
                             } else {
                                 console.error("Nenhum blob PDF capturado.");
                                 alert("Nenhum PDF foi detectado. Verifique o console para detalhes.");
                             }
                         } catch (error) {
-                            console.error(`Erro ao processar clique no botão NFCe (índice ${index}):`, error.message);
+                            console.error("Erro ao processar clique no #viewNf:", error.message);
                             alert("Erro ao processar o PDF. Verifique o console para detalhes.");
                         }
                     });
-                    nfceButton.dataset.listenerAttached = 'true';
+                    viewNfButton.dataset.listenerAttached = 'true';
                 }
-            });
+
+                const nfeButton = document.getElementsByClassName('nfe-btn')[0];
+                if (nfeButton && !nfeButton.dataset.listenerAttached) {
+                    console.log("Botão de emissão de NFe encontrado via MutationObserver!");
+                    nfeButton.addEventListener('click', async (event) => {
+                        console.log("Botão de emissão de NFe clicado!");
+                        event.preventDefault();
+                        try {
+                            const result = await captureBlobPDF();
+                            if (result.arrayBuffer) {
+                                await addLogoToPDF(result.arrayBuffer, result);
+                            } else {
+                                console.error("Nenhum blob PDF capturado.");
+                                alert("Nenhum PDF foi detectado. Verifique o console para detalhes.");
+                            }
+                        } catch (error) {
+                            console.error("Erro ao processar clique no botão de emissão de NFe:", error.message);
+                            alert("Erro ao processar o PDF. Verifique o console para detalhes.");
+                        }
+                    });
+                    nfeButton.dataset.listenerAttached = 'true';
+                }
+
+                const nfceButtons = document.querySelectorAll('button[class="n-button n-button--primary n-button-medium n-issue-button"]');
+                nfceButtons.forEach((nfceButton, index) => {
+                    if (!nfceButton.dataset.listenerAttached) {
+                        console.log(`Botão NFCe (índice ${index}) encontrado via MutationObserver!`);
+                        nfceButton.addEventListener('click', async (event) => {
+                            console.log(`Botão NFCe (índice ${index}) clicado!`);
+                            event.preventDefault();
+                            try {
+                                const result = await captureBlobPDF();
+                                if (result.arrayBuffer) {
+                                    await addLogoToPDF(result.arrayBuffer, result);
+                                } else {
+                                    console.error("Nenhum blob PDF capturado.");
+                                    alert("Nenhum PDF foi detectado. Verifique o console para detalhes.");
+                                }
+                            } catch (error) {
+                                console.error(`Erro ao processar clique no botão NFCe (índice ${index}):`, error.message);
+                                alert("Erro ao processar o PDF. Verifique o console para detalhes.");
+                            }
+                        });
+                        nfceButton.dataset.listenerAttached = 'true';
+                    }
+                });
+
+                const completeButton = document.getElementById('complete');
+                if (completeButton && !completeButton.dataset.listenerAttached) {
+                    console.log("Botão #complete encontrado via MutationObserver!");
+                    completeButton.addEventListener('click', async (event) => {
+                        console.log("Botão #complete clicado!");
+                        event.preventDefault();
+                        try {
+                            const result = await captureBlobPDF();
+                            if (result.arrayBuffer) {
+                                await addLogoToPDF(result.arrayBuffer, result);
+                            } else {
+                                console.error("Nenhum blob PDF capturado.");
+                                alert("Nenhum PDF foi detectado. Verifique o console para detalhes.");
+                            }
+                        } catch (error) {
+                            console.error("Erro ao processar clique no #complete:", error.message);
+                            alert("Erro ao processar o PDF. Verifique o console para detalhes.");
+                        }
+                    });
+                    completeButton.dataset.listenerAttached = 'true';
+                }
+
+                const printIcon = document.querySelector('i.sprite-new-erp.print');
+                if (printIcon && !printIcon.dataset.listenerAttached) {
+                    console.log("Ícone de impressão (i.sprite-new-erp.print) encontrado via MutationObserver!");
+                    printIcon.addEventListener('click', async (event) => {
+                        console.log("Ícone de impressão clicado!");
+                        event.preventDefault();
+                        try {
+                            const result = await captureBlobPDF();
+                            if (result.arrayBuffer) {
+                                await addLogoToPDF(result.arrayBuffer, result, true);
+                            } else {
+                                console.error("Nenhum blob PDF capturado.");
+                                alert("Nenhum PDF foi detectado. Verifique o console para detalhes.");
+                            }
+                        } catch (error) {
+                            console.error("Erro ao processar PDF ao clicar no ícone de impressão:", error.message);
+                            alert("Erro ao processar o PDF. Verifique o console para detalhes.");
+                        }
+                    });
+                    printIcon.dataset.listenerAttached = 'true';
+                }
+            } catch (error) {
+                console.error("Erro no MutationObserver:", error.message);
+            }
         });
 
         observer.observe(document.body, { childList: true, subtree: true });
@@ -573,6 +745,6 @@
         });
     }
 
-    // Inicia o monitoramento
+    // Iniciar o monitoramento
     monitorURLChanges();
 })();
