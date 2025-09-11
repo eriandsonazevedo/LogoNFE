@@ -80,7 +80,7 @@
         });
     }
 
-    // Função para carregar a imagem da logo usando GM_xmlhttpRequest (CORS BYPASS)
+    // Função para carregar a imagem do logotipo usando GM_xmlhttpRequest (CORS BYPASS)
     function loadImage(url) {
         return new Promise((resolve) => {
             GM_xmlhttpRequest({
@@ -108,7 +108,7 @@
                             fallbackImg.onload = () => resolve(fallbackImg);
                             fallbackImg.onerror = () => {
                                 console.error("Erro ao carregar imagem de fallback:", BLANK_IMAGE_URL);
-                                resolve(fallbackImg); // Resolve mesmo com erro no fallback
+                                resolve(fallbackImg);
                             };
                             fallbackImg.src = BLANK_IMAGE_URL;
                         };
@@ -119,7 +119,7 @@
                         fallbackImg.onload = () => resolve(fallbackImg);
                         fallbackImg.onerror = () => {
                             console.error("Erro ao carregar imagem de fallback:", BLANK_IMAGE_URL);
-                            resolve(fallbackImg); // Resolve mesmo com erro no fallback
+                            resolve(fallbackImg);
                         };
                         fallbackImg.src = BLANK_IMAGE_URL;
                     }
@@ -130,7 +130,7 @@
                     fallbackImg.onload = () => resolve(fallbackImg);
                     fallbackImg.onerror = () => {
                         console.error("Erro ao carregar imagem de fallback:", BLANK_IMAGE_URL);
-                        resolve(fallbackImg); // Resolve mesmo com erro no fallback
+                        resolve(fallbackImg);
                     };
                     fallbackImg.src = BLANK_IMAGE_URL;
                 }
@@ -198,7 +198,7 @@
 
     // Função para extrair o nome do arquivo a partir do DOM
     function getFileNameFromDOM() {
-        // Verifica o número do pedido em <p class="order-number ng-binding">
+	// Verifica o número do pedido em <p class="order-number ng-binding">
         const orderNumberElement = document.querySelector('p.order-number.ng-binding');
         if (orderNumberElement) {
             const orderNumber = orderNumberElement.textContent.trim();
@@ -212,7 +212,7 @@
             console.warn("Elemento <p class='order-number ng-binding'> não encontrado.");
         }
 
-        // Verifica o título em <span id="title"> para orçamentos
+	// Verifica o título em <span id="title"> para orçamentos
         const titleElement = document.querySelector('span#title');
         if (titleElement) {
             const titleText = titleElement.textContent.trim();
@@ -261,7 +261,7 @@
                 });
             }
 
-            // Monitora mudanças no DOM para detectar a chave dinamicamente
+	// Monitora alterações no DOM para detectar a chave dinamicamente
             const chaveObserver = new MutationObserver((mutations) => {
                 if (!chave) {
                     chave = getChaveFromDOM();
@@ -272,7 +272,7 @@
             });
             chaveObserver.observe(document.body, { childList: true, subtree: true, characterData: true });
 
-            // Intercepta fetch
+	// Busca de interceptação
             const originalFetch = window.fetch;
             window.fetch = async function(resource, init) {
                 const response = await originalFetch.call(window, resource, init);
@@ -321,7 +321,7 @@
                 return originalXHROpen.apply(this, arguments);
             };
 
-            // Monitora cliques em links <a>
+	// Monitora cliques em links <a>
             const handleClick = function(event) {
                 const target = event.target.closest('a');
                 if (target && target.href && target.href.includes('marketup-cdn') && target.href.endsWith('.pdf')) {
@@ -346,7 +346,7 @@
             };
             document.addEventListener('click', handleClick, true);
 
-            // Monitora elementos <a> com href blob:https://
+	// Monitora elementos <a> com href blob:https://
             const blobObserver = new MutationObserver((mutations) => {
                 mutations.forEach(mutation => {
                     mutation.addedNodes.forEach(node => {
@@ -370,7 +370,7 @@
             });
             blobObserver.observe(document.body, { childList: true, subtree: true });
 
-            // Intercepta URL.createObjectURL
+	// Intercepta URL.createObjectURL
             const originalCreateObjectURL = URL.createObjectURL;
             URL.createObjectURL = function(blob) {
                 const url = originalCreateObjectURL.call(URL, blob);
@@ -392,7 +392,7 @@
                 return url;
             };
 
-            // Função para limpar interceptadores e observadores
+	// Função para limpar interceptadores e observadores
             function cleanupInterceptors() {
                 window.fetch = originalFetch;
                 XMLHttpRequest.prototype.open = originalXHROpen;
@@ -402,7 +402,7 @@
                 chaveObserver.disconnect();
             }
 
-            // Timeout com fallback para download manual
+	// Timeout com fallback para download manual
             setTimeout(() => {
                 if (!blobCaptured) {
                     console.log("Timeout: Nenhum blob PDF detectado após", timeout, "ms.");
@@ -446,7 +446,7 @@
 
             const pdfDoc = await PDFDocument.load(pdfArrayBuffer);
 
-            // Define o nome do arquivo
+	// Define o nome do arquivo
             let fileName = 'documento_com_logo.pdf';
             if (chave) {
                 fileName = `NFe ${chave}.pdf`;
@@ -457,7 +457,7 @@
                     fileName = domFileName;
                     console.log("Nome do arquivo definido a partir do DOM:", fileName);
                 } else if (url) {
-                    // Fallback para URL
+	// Fallback para URL
                     if (url.includes('pedido-de-venda')) {
                         fileName = 'pedido-de-venda_com_logo.pdf';
                         console.log("Nome do arquivo definido como pedido (URL):", fileName);
@@ -472,7 +472,7 @@
                 }
             }
 
-            // Carrega a imagem da logo
+	// Carregue a imagem do logotipo
             const logoUrl = getLogoURL();
             let logoImage;
             try {
@@ -487,7 +487,7 @@
                 console.log("Imagem da logo processada com sucesso.");
             } catch (error) {
                 console.warn("Erro ao processar a imagem da logo, usando PDF sem logo:", error.message);
-                // Prossegue sem adicionar a logo
+	// Prossegue sem adicionar o logotipo
                 const pdfBytes = await pdfDoc.save();
                 const blob = new Blob([pdfBytes], { type: 'application/pdf' });
                 const blobUrl = URL.createObjectURL(blob);
@@ -506,19 +506,19 @@
                 let logoWidth, logoHeight, logoX, logoY;
 
                 if (isViewNf) {
-                    // Configurações específicas para ng-click="controller.viewNfce()"
+	//Configurações específicas para ng-click="controller.viewNfce()"
                     logoWidth = 65 * 0.75;
                     logoHeight = 65 * 0.75;
                     logoX = 17 * 0.75;
                     logoY = height - (20 * 0.75) - logoHeight;
                 } else if (isPrintIcon) {
-                    // Configurações para o ícone de impressão
+	// Configurações para o ícone de impressão
                     logoWidth = 80;
                     logoHeight = 80;
                     logoX = 15;
                     logoY = height - 40 - logoHeight;
                 } else {
-                    // Configurações padrão (incluindo ng-click="controller.viewNfe()")
+	// configurações padrão (incluindo ng-click="controller.viewNfe()")
                     logoWidth = 111 * 0.75;
                     logoHeight = 111 * 0.75;
                     logoX = 60 * 0.75;
@@ -538,7 +538,7 @@
             });
             console.log("Logo adicionado a todas as páginas do PDF.");
 
-            // Salva o PDF modificado
+	// Salvar o PDF modificado
             const pdfBytes = await pdfDoc.save();
             const blob = new Blob([pdfBytes], { type: 'application/pdf' });
             const blobUrl = URL.createObjectURL(blob);
@@ -559,122 +559,81 @@
     function setupButtonListeners() {
         const observer = new MutationObserver((mutations, obs) => {
             try {
-                const viewNfButton = document.getElementById('viewNf');
-                if (viewNfButton && !viewNfButton.dataset.listenerAttached) {
-                    console.log("Botão #viewNf encontrado via MutationObserver!");
-                    viewNfButton.addEventListener('click', async (event) => {
-                        console.log("Botão #viewNf clicado!");
-                        event.preventDefault();
-                        try {
-                            // Verifica o atributo ng-click para determinar se é NFe ou NFC-e
-                            const ngClick = viewNfButton.getAttribute('ng-click');
-                            const isViewNf = ngClick && ngClick.includes('controller.viewNfce()');
-                            console.log("Botão #viewNf é NFC-e (ng-click='controller.viewNfce()')?", isViewNf);
-
-                            const result = await captureBlobPDF();
-                            if (result.arrayBuffer) {
-                                await addLogoToPDF(result.arrayBuffer, result, false, isViewNf);
-                            } else {
-                                console.error("Nenhum blob PDF capturado.");
-                                alert("Nenhum PDF foi detectado. Verifique o console para detalhes.");
-                            }
-                        } catch (error) {
-                            console.error("Erro ao processar clique no #viewNf:", error.message);
-                            alert("Erro ao processar o PDF. Verifique o console para detalhes.");
-                        }
-                    });
-                    viewNfButton.dataset.listenerAttached = 'true';
-                }
-
-                // Detecta o botão #invoice_detail_emitir (NFe)
-            const nfeButton = document.getElementById('invoice_detail_emitir');
-            if (nfeButton && !nfeButton.dataset.listenerAttached) {
-                console.log("Botão #invoice_detail_emitir encontrado via MutationObserver!");
-                    nfeButton.addEventListener('click', async (event) => {
-                        console.log("Botão de emissão de NFe clicado!");
-                        event.preventDefault();
-                        try {
-                            const result = await captureBlobPDF();
-                            if (result.arrayBuffer) {
-                                await addLogoToPDF(result.arrayBuffer, result);
-                            } else {
-                                console.error("Nenhum blob PDF capturado.");
-                                alert("Nenhum PDF foi detectado. Verifique o console para detalhes.");
-                            }
-                        } catch (error) {
-                            console.error("Erro ao processar clique no botão de emissão de NFe:", error.message);
-                            alert("Erro ao processar o PDF. Verifique o console para detalhes.");
-                        }
-                    });
-                    nfeButton.dataset.listenerAttached = 'true';
-                }
-
-                const nfceButtons = document.querySelectorAll('button[class="n-button n-button--primary n-button-medium n-issue-button"]');
-                nfceButtons.forEach((nfceButton, index) => {
-                    if (!nfceButton.dataset.listenerAttached) {
-                        console.log(`Botão NFCe (índice ${index}) encontrado via MutationObserver!`);
-                        nfceButton.addEventListener('click', async (event) => {
-                            console.log(`Botão NFCe (índice ${index}) clicado!`);
+                // Função auxiliar para adicionar listener
+                const addClickListener = (element, identifier, isPrintIcon = false, isViewNf = false) => {
+                    if (element && !element.dataset.listenerAttached) {
+                        console.log(`Elemento (${identifier}) encontrado via MutationObserver!`);
+                        element.addEventListener('click', async (event) => {
+                            console.log(`Elemento (${identifier}) clicado!`);
                             event.preventDefault();
                             try {
                                 const result = await captureBlobPDF();
                                 if (result.arrayBuffer) {
-                                    await addLogoToPDF(result.arrayBuffer, result);
+                                    await addLogoToPDF(result.arrayBuffer, result, isPrintIcon, isViewNf);
                                 } else {
                                     console.error("Nenhum blob PDF capturado.");
                                     alert("Nenhum PDF foi detectado. Verifique o console para detalhes.");
                                 }
                             } catch (error) {
-                                console.error(`Erro ao processar clique no botão NFCe (índice ${index}):`, error.message);
+                                console.error(`Erro ao processar clique no elemento (${identifier}):`, error.message);
                                 alert("Erro ao processar o PDF. Verifique o console para detalhes.");
                             }
                         });
-                        nfceButton.dataset.listenerAttached = 'true';
+                        element.dataset.listenerAttached = 'true';
                     }
-                });
+                };
 
-                const completeButton = document.getElementById('complete');
-                if (completeButton && !completeButton.dataset.listenerAttached) {
-                    console.log("Botão #complete encontrado via MutationObserver!");
-                    completeButton.addEventListener('click', async (event) => {
-                        console.log("Botão #complete clicado!");
-                        event.preventDefault();
-                        try {
-                            const result = await captureBlobPDF();
-                            if (result.arrayBuffer) {
-                                await addLogoToPDF(result.arrayBuffer, result);
-                            } else {
-                                console.error("Nenhum blob PDF capturado.");
-                                alert("Nenhum PDF foi detectado. Verifique o console para detalhes.");
-                            }
-                        } catch (error) {
-                            console.error("Erro ao processar clique no #complete:", error.message);
-                            alert("Erro ao processar o PDF. Verifique o console para detalhes.");
-                        }
-                    });
-                    completeButton.dataset.listenerAttached = 'true';
+                // Detecta o botão #viewNf
+                const viewNfButton = document.getElementById('viewNf');
+                if (viewNfButton && !viewNfButton.dataset.listenerAttached) {
+                    const ngClick = viewNfButton.getAttribute('ng-click');
+                    const isViewNf = ngClick && ngClick.includes('controller.viewNfce()');
+                    console.log("Botão #viewNf encontrado, é NFC-e (ng-click='controller.viewNfce()')?", isViewNf);
+                    addClickListener(viewNfButton, '#viewNf', false, isViewNf);
                 }
 
-                const printIcon = document.querySelector('i.sprite-new-erp.print');
-                if (printIcon && !printIcon.dataset.listenerAttached) {
-                    console.log("Ícone de impressão (i.sprite-new-erp.print) encontrado via MutationObserver!");
-                    printIcon.addEventListener('click', async (event) => {
-                        console.log("Ícone de impressão clicado!");
-                        event.preventDefault();
+                // Detecta o botão #invoice_detail_emitir (NFe)
+                const nfeButton = document.getElementById('invoice_detail_emitir');
+                addClickListener(nfeButton, '#invoice_detail_emitir');
+
+                // Detecta os botões NFCe (antigo e novo seletor)
+                const nfceButtons = document.querySelectorAll('button.n-issue-button, button.issue');
+                nfceButtons.forEach((nfceButton, index) => {
+                    const isViewNf = nfceButton.getAttribute('ng-click')?.includes('controller.issueNfce()');
+                    addClickListener(nfceButton, `NFCe índice ${index} (class: ${nfceButton.className})`, false, isViewNf);
+                });
+
+                // Detecta o botão #complete
+                const completeButton = document.getElementById('complete');
+                addClickListener(completeButton, '#complete');
+
+                // Detecta os ícones de impressão
+                const printIcons = document.querySelectorAll('i.sprite-new-erp.print, i.sprite-new-erp.bottom-print');
+                printIcons.forEach((printIcon) => {
+                    addClickListener(printIcon, `ícone de impressão ${printIcon.className}`, true);
+                });
+
+                // Intercepta controller.issueNfce()
+                if (window.controller?.issueNfce && !window.controller.issueNfce._intercepted) {
+                    console.log("Interceptando controller.issueNfce...");
+                    const originalIssueNfce = window.controller.issueNfce;
+                    window.controller.issueNfce = async function (...args) {
+                        console.log("Função controller.issueNfce() chamada!");
                         try {
                             const result = await captureBlobPDF();
                             if (result.arrayBuffer) {
-                                await addLogoToPDF(result.arrayBuffer, result, true);
+                                await addLogoToPDF(result.arrayBuffer, result, false, true);
                             } else {
-                                console.error("Nenhum blob PDF capturado.");
+                                console.error("Nenhum blob PDF capturado em controller.issueNfce().");
                                 alert("Nenhum PDF foi detectado. Verifique o console para detalhes.");
                             }
+                            return originalIssueNfce.apply(this, args);
                         } catch (error) {
-                            console.error("Erro ao processar PDF ao clicar no ícone de impressão:", error.message);
+                            console.error("Erro ao processar controller.issueNfce():", error.message);
                             alert("Erro ao processar o PDF. Verifique o console para detalhes.");
                         }
-                    });
-                    printIcon.dataset.listenerAttached = 'true';
+                    };
+                    window.controller.issueNfce._intercepted = true;
                 }
             } catch (error) {
                 console.error("Erro no MutationObserver:", error.message);
