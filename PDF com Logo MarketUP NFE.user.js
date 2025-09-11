@@ -449,8 +449,8 @@
 	// Define o nome do arquivo
             let fileName = 'documento_com_logo.pdf';
             if (chave) {
-                fileName = `NFe ${chave}.pdf`;
-                console.log("Nome do arquivo definido como NFe com chave:", fileName);
+                fileName = isViewNf ? `NFCe ${chave}.pdf` : `NFe ${chave}.pdf`;
+                console.log(`Nome do arquivo definido como ${isViewNf ? 'NFCe' : 'NFe'} com chave:`, fileName);
             } else {
                 const domFileName = getFileNameFromDOM();
                 if (domFileName) {
