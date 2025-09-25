@@ -1,23 +1,61 @@
 // ==UserScript==
 // @name         PDF com Logo MarketUP
 // @namespace    http://tampermonkey.net/
-// @version      2025
+// @version      2025.1
 // @description  Adiciona uma logo ao PDF da DANFE
-// @author       Eriandson Azevedo
+// @match        https://*/muppos/*
 // @match        https://*/index.html
 // @match        https://*/index-adesampa.html
-// @match        https://*/muppos/*
+// @updateURL    https://raw.githubusercontent.com/eriandsonazevedo/LogoNFE/main/PDF%20com%20Logo%20MarketUP%20NFE.user.js
+// @downloadURL  https://raw.githubusercontent.com/eriandsonazevedo/LogoNFE/main/PDF%20com%20Logo%20MarketUP%20NFE.user.js
+// @icon         https://www.google.com/s2/favicons?sz=64&domain=marketup.com
+// @grant        GM_xmlhttpRequest
 // @require      https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js
 // @require      https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js
 // @require      https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js
 // @require      https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js
 // @require      https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js
-// @icon         https://www.google.com/s2/favicons?sz=64&domain=marketup.com
-// @grant        GM_xmlhttpRequest
 // ==/UserScript==
 
-(function() {
+(function () {
     'use strict';
+
+    function atualizarLocalStorage() {
+        let pdvInfo = JSON.parse(localStorage.getItem('PdvInstallSummaryInfo')) || {};
+        let alterado = false;
+
+        const chavesBooleanas = ['MeuMUP'];
+
+        chavesBooleanas.forEach(chave => {
+            if (pdvInfo[chave] !== true) {
+                pdvInfo[chave] = true;
+                alterado = true;
+            }
+        });
+
+        if (alterado) {
+            localStorage.setItem('PdvInstallSummaryInfo', JSON.stringify(pdvInfo));
+            console.log("✅ localStorage 'PdvInstallSummaryInfo' atualizado com sucesso.");
+        }
+    }
+
+    function executarAcoes() {
+        atualizarLocalStorage();
+    }
+
+    executarAcoes();
+
+    const observerUnlock = new MutationObserver(() => {
+        executarAcoes();
+    });
+    observerUnlock.observe(document.body, {
+        childList: true,
+        subtree: true,
+        attributes: true
+    });
+
+    window.addEventListener('hashchange', executarAcoes);
+    window.addEventListener('popstate', executarAcoes);
 
     // Evita execução em iframes
     if (window.self !== window.top) {
